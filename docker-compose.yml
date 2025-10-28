@@ -1,6 +1,23 @@
 version: '3.8'
 
 services:
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: savetogether_user
+      POSTGRES_PASSWORD: savetogetherwithabsa
+      POSTGRES_DB: savetogether
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U savetogether_user"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   web:
     build: .
     ports:
@@ -20,23 +37,6 @@ services:
     networks:
       - app-network
     restart: unless-stopped
-
-  db:
-    image: postgres:latest
-    restart: always
-    environment:
-      POSTGRES_USER: savetogether_user
-      POSTGRES_PASSWORD: savetogetherwithabsa
-      POSTGRES_DB: savetogether
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U savetogether_user -d savetogether"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
 networks:
   app-network:
