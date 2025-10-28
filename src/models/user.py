@@ -58,10 +58,13 @@ class User(db.Model):
         }
 
     @classmethod
-    def create_user(cls, email, display_name, password, phone=None):
+    def create_user(cls, email, display_name=None, password=None, phone=None, name=None):
         """Create a new user"""
-        user = cls(email=email, display_name=display_name, phone=phone)
-        user.set_password(password)
+        # Support both 'name' and 'display_name' parameters
+        final_display_name = name or display_name or email.split('@')[0]
+        user = cls(email=email, display_name=final_display_name, phone=phone)
+        if password:
+            user.set_password(password)
         db.session.add(user)
         db.session.commit()
         return user
