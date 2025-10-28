@@ -84,3 +84,73 @@ def delete_all_users():
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': f'Error deleting users: {str(e)}'}), 500
+
+@admin_bp.route('/stockvels', methods=['GET'])
+def get_all_stockvels():
+    """Get all stockvels/groups"""
+    try:
+        stockvels = Stockvel.query.order_by(Stockvel.created_at.desc()).all()
+        
+        stockvels_data = []
+        for stockvel in stockvels:
+            stockvel_dict = stockvel.to_dict()
+            # Add admin user info
+            admin = User.query.get(stockvel.admin_user_id)
+            stockvel_dict['admin'] = admin.to_dict() if admin else None
+            # Add member count
+            stockvel_dict['member_count'] = len(stockvel.members)
+            stockvels_data.append(stockvel_dict)
+        
+        return jsonify({
+            'stockvels': stockvels_data
+        }), 200
+        
+    except Exception as e:
+        return jsonify({'message': f'Error getting stockvels: {str(e)}'}), 500
+
+@admin_bp.route('/stockvels/<int:stockvel_id>', methods=['DELETE'])
+def delete_stockvel(stockvel_id):
+    """Delete a specific stockvel"""
+    try:
+        stockvel = Stockvel.query.get(stockvel_id)
+        
+        if not stockvel:
+            return jsonify({'message': 'Stockvel not found'}), 404
+        
+        name = stockvel.name
+        
+        # Delete related records first
+        StockvelMember.query.filter_by(stockvel_id=stockvel_id).delete()
+        
+        # Delete stockvel
+        db.session.delete(stockvel)
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'Stockvel "{name}" deleted successfully'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': f'Error deleting stockvel: {str(e)}'}), 500
+
+@admin_bp.route('/stockvels/delete-all', methods=['POST'])
+def delete_all_stockvels():
+    """Delete all stockvels - USE WITH CAUTION"""
+    try:
+        # First delete all members
+        StockvelMember.query.delete()
+        
+        # Then delete all stockvels
+        num_deleted = Stockvel.query.delete()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'message': f'Successfully deleted {num_deleted} stockvels and all related data'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': f'Error deleting stockvels: {str(e)}'}), 500
+

@@ -217,14 +217,28 @@
                 <h2>👥 User Management</h2>
                 <div class="action-buttons">
                     <button class="btn btn-primary" onclick="loadUsers()">🔄 Refresh Users</button>
-                    <button class="btn btn-warning" onclick="confirmDeleteAll()">⚠️ Delete All Users</button>
+                    <button class="btn btn-warning" onclick="confirmDeleteAll('users')">⚠️ Delete All Users</button>
                 </div>
                 
-                <div id="loading" class="loading" style="display: none;">
+                <div id="loadingUsers" class="loading" style="display: none;">
                     <p>Loading...</p>
                 </div>
                 
                 <div id="usersTable" style="margin-top: 20px;"></div>
+            </div>
+            
+            <div class="section">
+                <h2>🏦 Stockvel Management</h2>
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="loadStockvels()">🔄 Refresh Stockvels</button>
+                    <button class="btn btn-warning" onclick="confirmDeleteAll('stockvels')">⚠️ Delete All Stockvels</button>
+                </div>
+                
+                <div id="loadingStockvels" class="loading" style="display: none;">
+                    <p>Loading...</p>
+                </div>
+                
+                <div id="stockvelsTable" style="margin-top: 20px;"></div>
             </div>
         </div>
     </div>
@@ -260,7 +274,7 @@
         
         // Load users
         async function loadUsers() {
-            const loading = document.getElementById('loading');
+            const loading = document.getElementById('loadingUsers');
             const usersTable = document.getElementById('usersTable');
             
             loading.style.display = 'block';
@@ -347,13 +361,18 @@
             }
         }
         
-        // Confirm delete all users
-        function confirmDeleteAll() {
-            if (confirm('⚠️ WARNING: This will delete ALL users and their data!\n\nAre you absolutely sure?')) {
+        // Confirm delete all
+        function confirmDeleteAll(type) {
+            const typeName = type === 'users' ? 'users' : 'stockvels';
+            if (confirm(`⚠️ WARNING: This will delete ALL ${typeName} and their data!\n\nAre you absolutely sure?`)) {
                 if (confirm('This action CANNOT be undone! Type YES in the next prompt to confirm.')) {
-                    const confirmation = prompt('Type YES to delete all users:');
+                    const confirmation = prompt(`Type YES to delete all ${typeName}:`);
                     if (confirmation === 'YES') {
-                        deleteAllUsers();
+                        if (type === 'users') {
+                            deleteAllUsers();
+                        } else {
+                            deleteAllStockvels();
+                        }
                     }
                 }
             }
@@ -371,6 +390,7 @@
                 if (response.ok) {
                     showAlert(data.message, 'success');
                     loadUsers();
+                    loadStockvels();
                     loadStats();
                 } else {
                     showAlert(data.message || 'Failed to delete users', 'error');
@@ -380,10 +400,127 @@
             }
         }
         
+        // Load stockvels
+        async function loadStockvels() {
+            const loading = document.getElementById('loadingStockvels');
+            const stockvelsTable = document.getElementById('stockvelsTable');
+            
+            loading.style.display = 'block';
+            stockvelsTable.innerHTML = '';
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/stockvels`);
+                const data = await response.json();
+                
+                loading.style.display = 'none';
+                
+                if (data.stockvels && data.stockvels.length > 0) {
+                    let tableHTML = `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Admin</th>
+                                    <th>Members</th>
+                                    <th>Contribution</th>
+                                    <th>Frequency</th>
+                                    <th>Status</th>
+                                    <th>Created At</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.stockvels.forEach(stockvel => {
+                        const adminEmail = stockvel.admin ? stockvel.admin.email : 'N/A';
+                        tableHTML += `
+                            <tr>
+                                <td>${stockvel.id}</td>
+                                <td>${stockvel.name}</td>
+                                <td>${adminEmail}</td>
+                                <td>${stockvel.member_count}/${stockvel.max_members}</td>
+                                <td>R${stockvel.contribution_amount}</td>
+                                <td>${stockvel.frequency}</td>
+                                <td>${stockvel.status}</td>
+                                <td>${new Date(stockvel.created_at).toLocaleDateString()}</td>
+                                <td>
+                                    <button class="btn btn-danger" onclick="deleteStockvel(${stockvel.id}, '${stockvel.name}')">
+                                        🗑️ Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    tableHTML += `
+                            </tbody>
+                        </table>
+                    `;
+                    
+                    stockvelsTable.innerHTML = tableHTML;
+                } else {
+                    stockvelsTable.innerHTML = '<div class="empty-state">No stockvels found</div>';
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                showAlert('Error loading stockvels: ' + error.message, 'error');
+            }
+        }
+        
+        // Delete single stockvel
+        async function deleteStockvel(stockvelId, name) {
+            if (!confirm(`Are you sure you want to delete stockvel: ${name}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/admin/stockvels/${stockvelId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    loadStockvels();
+                    loadStats();
+                } else {
+                    showAlert(data.message || 'Failed to delete stockvel', 'error');
+                }
+            } catch (error) {
+                showAlert('Error deleting stockvel: ' + error.message, 'error');
+            }
+        }
+        
+        // Delete all stockvels
+        async function deleteAllStockvels() {
+            try {
+                const response = await fetch(`${API_BASE}/admin/stockvels/delete-all`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showAlert(data.message, 'success');
+                    loadStockvels();
+                    loadStats();
+                } else {
+                    showAlert(data.message || 'Failed to delete stockvels', 'error');
+                }
+            } catch (error) {
+                showAlert('Error deleting stockvels: ' + error.message, 'error');
+            }
+        }
+        
         // Load data on page load
         window.onload = function() {
             loadStats();
             loadUsers();
+            loadStockvels();
+        };
         };
     </script>
 </body>
