@@ -9,6 +9,5 @@ gunicorn==21.2.0
 marshmallow==3.20.1
 email-validator==2.1.0
 
-# PostgreSQL adapter (only needed for production)
-# Uncomment the line below when deploying to production with PostgreSQL
-# psycopg2-binary==2.9.9
+# PostgreSQL adapter
+psycopg2-binary==2.9.9
