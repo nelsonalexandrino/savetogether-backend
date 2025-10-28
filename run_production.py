@@ -9,12 +9,17 @@ import sys
 # Set production environment variables
 os.environ['FLASK_ENV'] = 'production'
 os.environ['DEBUG'] = 'False'
-os.environ['SECRET_KEY'] = 'dev-secret-key-123'
-os.environ['JWT_SECRET_KEY'] = 'dev-jwt-secret-key-456'
-os.environ['DATABASE_URL'] = 'postgresql://savetogether_user:savetogetherwithabsa@localhost:5432/savetogether'
-os.environ['CORS_ORIGINS'] = '*'
-os.environ['PORT'] = '5000'
-os.environ['HOST'] = '0.0.0.0'
+os.environ['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-123')
+os.environ['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'dev-jwt-secret-key-456')
+
+# Use DATABASE_URL from environment if available (Docker sets this)
+# Otherwise use default for local development
+if not os.getenv('DATABASE_URL'):
+    os.environ['DATABASE_URL'] = 'postgresql://savetogether_user:savetogetherwithabsa@localhost:5432/savetogether'
+
+os.environ['CORS_ORIGINS'] = os.getenv('CORS_ORIGINS', '*')
+os.environ['PORT'] = os.getenv('PORT', '5000')
+os.environ['HOST'] = os.getenv('HOST', '0.0.0.0')
 
 print("=" * 60)
 print("🚀 Starting SaveTogether Backend - PRODUCTION MODE")
