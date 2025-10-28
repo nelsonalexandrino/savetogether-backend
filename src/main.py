@@ -1,12 +1,11 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from services.database_service import db
 from utils.config import config_by_name
 import os
 
-# Initialize extensions
-db = SQLAlchemy()
+# Initialize JWT extension
 jwt = JWTManager()
 
 def create_app():
