@@ -11,30 +11,40 @@ stockvels_bp = Blueprint('stockvels', __name__)
 @stockvels_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_stockvel():
+    """Create a new stockvel/group"""
     try:
         current_user_id = get_jwt_identity()
         data = request.get_json()
         
-        # Validation
-        required_fields = ['name', 'target_amount', 'monthly_contribution', 'start_date', 'end_date']
+        # Validation - matching Flutter fields
+        required_fields = ['name', 'contribution_amount', 'frequency', 'max_members', 'start_date']
         for field in required_fields:
             if field not in data:
-                return jsonify({'error': f'{field} is required'}), 400
+                return jsonify({'message': f'{field} is required'}), 400
+        
+        # Parse start_date
+        try:
+            start_date = datetime.fromisoformat(data['start_date'].replace('Z', '+00:00'))
+        except:
+            try:
+                start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
+            except:
+                return jsonify({'message': 'Invalid date format'}), 400
         
         # Create stockvel
         stockvel = Stockvel(
             name=data['name'],
             description=data.get('description', ''),
-            target_amount=Decimal(str(data['target_amount'])),
-            monthly_contribution=Decimal(str(data['monthly_contribution'])),
-            start_date=datetime.strptime(data['start_date'], '%Y-%m-%d').date(),
-            end_date=datetime.strptime(data['end_date'], '%Y-%m-%d').date(),
-            created_by=current_user_id,
-            max_members=data.get('max_members', 10)
+            contribution_amount=Decimal(str(data['contribution_amount'])),
+            frequency=data['frequency'],  # Weekly, Bi-Weekly, Monthly
+            max_members=int(data['max_members']),
+            start_date=start_date,
+            status=data.get('status', 'Upcoming'),
+            admin_user_id=current_user_id
         )
         
         db.session.add(stockvel)
-        db.session.flush()  # Get the ID
+        db.session.flush()  # Get the ID and invite_code
         
         # Add creator as admin member
         member = StockvelMember(
@@ -46,13 +56,14 @@ def create_stockvel():
         db.session.commit()
         
         return jsonify({
-            'message': 'Stockvel created successfully',
+            'message': 'Group created successfully',
+            'invite_code': stockvel.invite_code,
             'stockvel': stockvel.to_dict()
         }), 201
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Failed to create stockvel', 'details': str(e)}), 500
+        return jsonify({'message': f'Failed to create group: {str(e)}'}), 500
 
 @stockvels_bp.route('/', methods=['GET'])
 @jwt_required()
