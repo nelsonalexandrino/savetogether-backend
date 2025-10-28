@@ -18,10 +18,14 @@ def create_stockvel():
         current_user_id = int(get_jwt_identity())  # Convert string back to int
         data = request.get_json()
         
+        logger.info(f"Create stockvel request from user {current_user_id}")
+        logger.info(f"Request data: {data}")
+        
         # Validation - matching Flutter fields
         required_fields = ['name', 'contribution_amount', 'frequency', 'max_members', 'start_date']
         for field in required_fields:
             if field not in data:
+                logger.error(f"Missing required field: {field}")
                 return jsonify({'message': f'{field} is required'}), 400
         
         # Parse start_date
@@ -30,7 +34,8 @@ def create_stockvel():
         except:
             try:
                 start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
-            except:
+            except Exception as date_error:
+                logger.error(f"Date parsing error: {date_error}")
                 return jsonify({'message': 'Invalid date format'}), 400
         
         # Create stockvel
@@ -48,6 +53,8 @@ def create_stockvel():
         db.session.add(stockvel)
         db.session.flush()  # Get the ID and invite_code
         
+        logger.info(f"Stockvel created with ID: {stockvel.id}")
+        
         # Add creator as admin member
         member = StockvelMember(
             stockvel_id=stockvel.id,
@@ -57,6 +64,8 @@ def create_stockvel():
         db.session.add(member)
         db.session.commit()
         
+        logger.info(f"Stockvel {stockvel.id} created successfully")
+        
         return jsonify({
             'message': 'Group created successfully',
             'invite_code': stockvel.invite_code,
@@ -65,6 +74,7 @@ def create_stockvel():
         
     except Exception as e:
         db.session.rollback()
+        logger.error(f"Error creating stockvel: {str(e)}", exc_info=True)
         return jsonify({'message': f'Failed to create group: {str(e)}'}), 500
 
 @stockvels_bp.route('/', methods=['GET'])
