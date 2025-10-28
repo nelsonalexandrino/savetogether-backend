@@ -139,6 +139,60 @@ def get_stockvel(stockvel_id):
     except Exception as e:
         return jsonify({'error': 'Failed to get stockvel', 'details': str(e)}), 500
 
+@stockvels_bp.route('/join', methods=['POST'])
+@jwt_required()
+def join_by_invite_code():
+    """Join a stockvel using an invite code"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        data = request.get_json()
+        
+        invite_code = data.get('invite_code', '').strip().upper()
+        
+        if not invite_code:
+            return jsonify({'message': 'Invite code is required'}), 400
+        
+        # Find stockvel by invite code
+        stockvel = Stockvel.query.filter_by(invite_code=invite_code).first()
+        
+        if not stockvel:
+            return jsonify({'message': 'Invalid invite code. Please check and try again.'}), 404
+        
+        if not stockvel.is_active:
+            return jsonify({'message': 'This stockvel is no longer active'}), 400
+        
+        # Check if already a member
+        existing_member = StockvelMember.query.filter_by(
+            stockvel_id=stockvel.id,
+            user_id=current_user_id
+        ).first()
+        
+        if existing_member:
+            return jsonify({'message': 'You are already a member of this stockvel'}), 400
+        
+        # Check if stockvel is full
+        if len(stockvel.members) >= stockvel.max_members:
+            return jsonify({'message': 'This stockvel is full'}), 400
+        
+        # Add as member
+        member = StockvelMember(
+            stockvel_id=stockvel.id,
+            user_id=current_user_id,
+            is_admin=False
+        )
+        db.session.add(member)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Successfully joined stockvel!',
+            'stockvel': stockvel.to_dict()
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error joining stockvel: {str(e)}", exc_info=True)
+        return jsonify({'message': f'Failed to join stockvel: {str(e)}'}), 500
+
 @stockvels_bp.route('/<int:stockvel_id>/join', methods=['POST'])
 @jwt_required()
 def join_stockvel(stockvel_id):
