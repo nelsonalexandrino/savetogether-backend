@@ -23,7 +23,7 @@ class Stockvel(db.Model):
     
     # Relationships
     members = db.relationship('StockvelMember', backref='stockvel', lazy=True, cascade='all, delete-orphan')
-    contributions = db.relationship('Contribution', backref='stockvel', lazy=True)
+    contributions = db.relationship('Contribution', backref='stockvel', lazy=True, cascade='all, delete-orphan')
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
