@@ -6,8 +6,12 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - FLASK_ENV=development
-      - DATABASE_URL=postgresql://user:password@db:5432/mydatabase
+      - FLASK_ENV=production
+      - DEBUG=False
+      - DATABASE_URL=postgresql://savetogether_user:savetogetherwithabsa@db:5432/savetogether
+      - JWT_SECRET_KEY=dev-jwt-secret-key-456
+      - SECRET_KEY=dev-secret-key-123
+      - CORS_ORIGINS=*
     volumes:
       - .:/app
     depends_on:
@@ -17,9 +21,9 @@ services:
     image: postgres:latest
     restart: always
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: mydatabase
+      POSTGRES_USER: savetogether_user
+      POSTGRES_PASSWORD: savetogetherwithabsa
+      POSTGRES_DB: savetogether
     volumes:
       - postgres_data:/var/lib/postgresql/data
 

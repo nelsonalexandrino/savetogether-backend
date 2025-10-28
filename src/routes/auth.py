@@ -3,8 +3,10 @@ from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identi
 from models.user import User
 from services.database_service import db
 import re
+import logging
 
 auth_bp = Blueprint('auth', __name__)
+logger = logging.getLogger(__name__)
 
 def validate_email(email):
     """Validate email format"""
@@ -51,6 +53,7 @@ def register():
         
         # Generate access token
         access_token = create_access_token(identity=user.id)
+        logger.info(f"Generated token for user {user.id}: {access_token[:20]}...")
         
         return jsonify({
             'message': 'User registered successfully',
@@ -95,6 +98,7 @@ def login():
         
         # Generate access token
         access_token = create_access_token(identity=user.id)
+        logger.info(f"Login successful for user {user.id} ({user.email}), token: {access_token[:20]}...")
         
         return jsonify({
             'message': 'Login successful',
@@ -110,13 +114,14 @@ def login():
 def get_profile():
     """Get current user's profile"""
     try:
-        current_user_id = get_jwt_identity()
-        user = User.get_by_id(current_user_id)
+        user_id = get_jwt_identity()
+        logger.info(f"Profile request from user_id: {user_id}")
+        user = User.query.get(user_id)
         
         if not user:
             return jsonify({'message': 'User not found'}), 404
-            
-        return jsonify({'user': user.to_dict()}), 200
+        
+        return jsonify(user.to_dict()), 200
         
     except Exception as e:
         return jsonify({'message': f'An error occurred: {str(e)}'}), 500

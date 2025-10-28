@@ -5,8 +5,10 @@ from models.user import User
 from services.database_service import db
 from datetime import datetime, date
 from decimal import Decimal
+import logging
 
 stockvels_bp = Blueprint('stockvels', __name__)
+logger = logging.getLogger(__name__)
 
 @stockvels_bp.route('/', methods=['POST'])
 @jwt_required()
@@ -70,12 +72,16 @@ def create_stockvel():
 def get_stockvels():
     try:
         current_user_id = get_jwt_identity()
+        logger.info(f"Get stockvels request from user_id: {current_user_id}")
+        logger.info(f"Authorization header: {request.headers.get('Authorization', 'MISSING')[:50]}...")
         
         # Get stockvels where user is a member
         user_stockvels = db.session.query(Stockvel).join(StockvelMember).filter(
             StockvelMember.user_id == current_user_id,
             Stockvel.is_active == True
         ).all()
+        
+        logger.info(f"Found {len(user_stockvels)} stockvels for user {current_user_id}")
         
         return jsonify({
             'stockvels': [stockvel.to_dict() for stockvel in user_stockvels]
