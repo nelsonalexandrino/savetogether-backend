@@ -43,10 +43,12 @@ def create_app():
     from routes.auth import auth_bp
     from routes.stockvels import stockvels_bp
     from routes.users import users_bp
+    from routes.admin import admin_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(stockvels_bp, url_prefix='/api/stockvels')
     app.register_blueprint(users_bp, url_prefix='/api/users')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
     
     @app.route('/')
     def health_check():
