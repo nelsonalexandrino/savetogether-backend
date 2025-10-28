@@ -1,53 +1,52 @@
-from flask import Flask, jsonify
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from utils.config import config_by_name
-from services.database_service import db
 import os
+
+# Initialize extensions
+db = SQLAlchemy()
+jwt = JWTManager()
 
 def create_app():
     app = Flask(__name__)
     
-    # Load configuration
+    # Configuration
     config_name = os.getenv('FLASK_ENV', 'development')
-    app.config.from_object(config_by_name.get(config_name, config_by_name['default']))
+    app.config.from_object(config_by_name[config_name])
     
     # Initialize extensions
-    CORS(app)
     db.init_app(app)
-    jwt = JWTManager(app)
+    jwt.init_app(app)
+    CORS(app, origins=app.config.get('CORS_ORIGINS', '').split(','))
     
     # Register blueprints
     from routes.auth import auth_bp
-    from routes.users import users_bp
     from routes.stockvels import stockvels_bp
+    from routes.users import users_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(users_bp, url_prefix='/api/users')
     app.register_blueprint(stockvels_bp, url_prefix='/api/stockvels')
+    app.register_blueprint(users_bp, url_prefix='/api/users')
     
-    # Error handlers
-    @app.errorhandler(404)
-    def not_found(error):
-        return jsonify({'error': 'Not found'}), 404
-    
-    @app.errorhandler(500)
-    def internal_error(error):
-        return jsonify({'error': 'Internal server error'}), 500
-    
-    # Health check endpoint
-    @app.route('/api/health')
+    @app.route('/')
     def health_check():
-        return jsonify({'status': 'healthy', 'message': 'SaveTogether API is running'})
-    
-    # Create tables
-    with app.app_context():
-        db.create_all()
+        return {'status': 'SaveTogether API is running!', 'version': '1.0.0'}
     
     return app
 
-if __name__ == "__main__":
-    app = create_app()
-    port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
-    app.run(host='0.0.0.0', port=port, debug=debug)
+# Create app instance
+app = create_app()
+
+if __name__ == '__main__':
+    with app.app_context():
+        # Import models to ensure they're registered
+        from models.user import User
+        from models.stockvel import Stockvel, StockvelMember, Contribution
+        
+    app.run(
+        host=app.config.get('HOST', '0.0.0.0'),
+        port=app.config.get('PORT', 5000),
+        debug=app.config.get('DEBUG', False)
+    )
