@@ -28,11 +28,13 @@ print(f"Host: {os.environ['HOST']}:{os.environ['PORT']}")
 print("=" * 60)
 print()
 
-# Now import and run the app
-sys.path.insert(0, os.path.dirname(__file__))
+# Add the src directory to the Python path
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
+# Now import and run the app
 if __name__ == '__main__':
-    from src.main import app
+    from main import app
     
     # Run the Flask app
     app.run(
