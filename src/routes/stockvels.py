@@ -239,16 +239,19 @@ def join_stockvel(stockvel_id):
 @stockvels_bp.route('/<int:stockvel_id>/contribute', methods=['POST'])
 @jwt_required()
 def make_contribution(stockvel_id):
+    """Make a contribution to a stockvel"""
     try:
-        current_user_id = int(get_jwt_identity())  # Convert string back to int
+        current_user_id = int(get_jwt_identity())
         data = request.get_json()
         
         if 'amount' not in data:
-            return jsonify({'error': 'Amount is required'}), 400
+            return jsonify({'message': 'Amount is required'}), 400
         
         amount = Decimal(str(data['amount']))
         if amount <= 0:
-            return jsonify({'error': 'Amount must be positive'}), 400
+            return jsonify({'message': 'Amount must be positive'}), 400
+        
+        months_paid = int(data.get('months_paid', 1))
         
         # Check if user is a member
         member = StockvelMember.query.filter_by(
@@ -257,37 +260,39 @@ def make_contribution(stockvel_id):
         ).first()
         
         if not member:
-            return jsonify({'error': 'You are not a member of this stockvel'}), 403
+            return jsonify({'message': 'You are not a member of this stockvel'}), 403
         
         stockvel = Stockvel.query.get(stockvel_id)
         if not stockvel:
-            return jsonify({'error': 'Stockvel not found'}), 404
+            return jsonify({'message': 'Stockvel not found'}), 404
+        
+        # Verify amount matches expected calculation
+        expected_amount = float(stockvel.contribution_amount) * months_paid
+        if abs(float(amount) - expected_amount) > 0.01:  # Allow small floating point difference
+            return jsonify({'message': 'Invalid contribution amount'}), 400
         
         # Create contribution
         contribution = Contribution(
             stockvel_id=stockvel_id,
             user_id=current_user_id,
             amount=amount,
-            description=data.get('description', '')
+            description=data.get('description', ''),
+            payment_method=data.get('payment_method', 'advance_payment'),
+            status='confirmed'  # Auto-confirm for now
         )
-        
-        # Update member total contribution
-        member.total_contributed += amount
-        
-        # Update stockvel current amount
-        stockvel.current_amount += amount
         
         db.session.add(contribution)
         db.session.commit()
         
         return jsonify({
-            'message': 'Contribution made successfully',
+            'message': f'Contribution of R{amount} for {months_paid} {"period" if months_paid == 1 else "periods"} submitted successfully!',
             'contribution': contribution.to_dict()
         }), 201
         
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Failed to make contribution', 'details': str(e)}), 500
+        logger.error(f"Error making contribution: {str(e)}", exc_info=True)
+        return jsonify({'message': f'Failed to make contribution: {str(e)}'}), 500
 
 @stockvels_bp.route('/<int:stockvel_id>/contributions', methods=['GET'])
 @jwt_required()
