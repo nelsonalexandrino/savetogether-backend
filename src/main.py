@@ -1,9 +1,10 @@
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from services.database_service import db
 from utils.config import config_by_name
 import os
+import logging
 
 # Initialize JWT extension
 jwt = JWTManager()
@@ -26,11 +27,13 @@ def create_app():
     
     @jwt.invalid_token_loader
     def invalid_token_callback(error):
-        return {'message': 'Invalid token', 'error': 'invalid_token'}, 401
+        print(f"Invalid token error: {error}")
+        return {'message': f'Invalid token: {error}', 'error': 'invalid_token'}, 401
     
     @jwt.unauthorized_loader
     def unauthorized_callback(error):
-        return {'message': 'Authorization token is missing', 'error': 'missing_token'}, 401
+        print(f"Unauthorized error: {error}")
+        return {'message': f'Authorization token is missing: {error}', 'error': 'missing_token'}, 401
     
     # Handle CORS origins (can be string or list)
     cors_origins = app.config.get('CORS_ORIGINS', '')
@@ -38,6 +41,17 @@ def create_app():
         cors_origins = cors_origins.split(',') if cors_origins else []
     
     CORS(app, origins=cors_origins)
+    
+    # Add request logging middleware
+    @app.before_request
+    def log_request_info():
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Request: {request.method} {request.path}")
+        logger.info(f"Headers: {dict(request.headers)}")
+        if request.headers.get('Authorization'):
+            auth_header = request.headers.get('Authorization')
+            logger.info(f"Auth Header: {auth_header[:50]}...")
     
     # Register blueprints
     from routes.auth import auth_bp
@@ -53,6 +67,23 @@ def create_app():
     @app.route('/')
     def health_check():
         return {'status': 'SaveTogether API is running!', 'version': '1.0.0'}
+    
+    @app.route('/test-auth')
+    def test_auth():
+        """Test endpoint to check JWT configuration"""
+        from flask_jwt_extended import create_access_token
+        import os
+        
+        # Create a test token
+        test_token = create_access_token(identity=999)
+        jwt_secret = os.getenv('JWT_SECRET_KEY', 'jwt-secret-change-in-production')
+        
+        return {
+            'message': 'JWT is configured',
+            'jwt_secret_preview': jwt_secret[:10] + '...',
+            'test_token': test_token[:50] + '...',
+            'full_test_token': test_token
+        }
     
     return app
 

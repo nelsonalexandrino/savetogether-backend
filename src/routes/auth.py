@@ -8,6 +8,22 @@ import logging
 auth_bp = Blueprint('auth', __name__)
 logger = logging.getLogger(__name__)
 
+@auth_bp.route('/debug', methods=['GET'])
+def debug_jwt():
+    """Debug endpoint to check JWT configuration"""
+    import os
+    from flask import current_app
+    
+    jwt_secret = os.getenv('JWT_SECRET_KEY', 'NOT SET')
+    app_jwt_secret = current_app.config.get('JWT_SECRET_KEY', 'NOT SET')
+    
+    return jsonify({
+        'env_jwt_secret': jwt_secret[:15] + '...' if jwt_secret != 'NOT SET' else 'NOT SET',
+        'app_jwt_secret': app_jwt_secret[:15] + '...' if app_jwt_secret != 'NOT SET' else 'NOT SET',
+        'flask_env': os.getenv('FLASK_ENV', 'NOT SET'),
+        'debug': current_app.config.get('DEBUG', 'NOT SET')
+    }), 200
+
 def validate_email(email):
     """Validate email format"""
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -93,17 +109,22 @@ def login():
         
         # Update last login
         from datetime import datetime
+        import os
         user.last_login = datetime.utcnow()
         db.session.commit()
         
         # Generate access token
         access_token = create_access_token(identity=user.id)
-        logger.info(f"Login successful for user {user.id} ({user.email}), token: {access_token[:20]}...")
+        jwt_secret = os.getenv('JWT_SECRET_KEY', 'jwt-secret-change-in-production')
+        logger.info(f"Login successful for user {user.id} ({user.email})")
+        logger.info(f"JWT Secret being used: {jwt_secret[:10]}...")
+        logger.info(f"Generated token: {access_token[:50]}...")
         
         return jsonify({
             'message': 'Login successful',
             'access_token': access_token,
-            'user': user.to_dict()
+            'user': user.to_dict(),
+            'debug_jwt_secret_preview': jwt_secret[:10] + '...'
         }), 200
         
     except Exception as e:
