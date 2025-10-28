@@ -19,7 +19,13 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     jwt.init_app(app)
-    CORS(app, origins=app.config.get('CORS_ORIGINS', '').split(','))
+    
+    # Handle CORS origins (can be string or list)
+    cors_origins = app.config.get('CORS_ORIGINS', '')
+    if isinstance(cors_origins, str):
+        cors_origins = cors_origins.split(',') if cors_origins else []
+    
+    CORS(app, origins=cors_origins)
     
     # Register blueprints
     from routes.auth import auth_bp
