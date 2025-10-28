@@ -1,5 +1,8 @@
 from services.database_service import db
 from datetime import datetime
+from sqlalchemy import Numeric
+import random
+import string
 
 class Stockvel(db.Model):
     __tablename__ = 'stockvels'
@@ -7,22 +10,38 @@ class Stockvel(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    target_amount = db.Column(db.Decimal(10, 2), nullable=False)
-    current_amount = db.Column(db.Decimal(10, 2), default=0.00)
-    monthly_contribution = db.Column(db.Decimal(10, 2), nullable=False)
-    start_date = db.Column(db.Date, nullable=False)
-    end_date = db.Column(db.Date, nullable=False)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    contribution_amount = db.Column(Numeric(10, 2), nullable=False)  # contributionAmount from Flutter
+    frequency = db.Column(db.String(20), nullable=False)  # Weekly, Bi-Weekly, Monthly
+    max_members = db.Column(db.Integer, nullable=False)  # maxMembers from Flutter
+    start_date = db.Column(db.DateTime, nullable=False)  # startDate from Flutter
+    end_date = db.Column(db.DateTime, nullable=True)
+    status = db.Column(db.String(20), default='Upcoming')  # status from Flutter
+    invite_code = db.Column(db.String(10), unique=True, nullable=False)  # inviteCode from Flutter
+    admin_user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)  # adminUser from Flutter
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # createdAt from Flutter
     is_active = db.Column(db.Boolean, default=True)
-    max_members = db.Column(db.Integer, default=10)
     
     # Relationships
     members = db.relationship('StockvelMember', backref='stockvel', lazy=True, cascade='all, delete-orphan')
     contributions = db.relationship('Contribution', backref='stockvel', lazy=True)
 
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        if not self.invite_code:
+            self.invite_code = self.generate_invite_code()
+    
+    @staticmethod
+    def generate_invite_code():
+        """Generate a unique 6-character invite code like Flutter's _generateInviteCode"""
+        chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890'
+        while True:
+            code = ''.join(random.choice(chars) for _ in range(6))
+            # Check if code already exists
+            if not Stockvel.query.filter_by(invite_code=code).first():
+                return code
+
     def __repr__(self):
-        return f"<Stockvel(id={self.id}, name='{self.name}', target_amount={self.target_amount})>"
+        return f"<Stockvel(id={self.id}, name='{self.name}', invite_code='{self.invite_code}')>"
 
     def to_dict(self):
         """Convert stockvel object to dictionary"""
@@ -30,16 +49,19 @@ class Stockvel(db.Model):
             'id': self.id,
             'name': self.name,
             'description': self.description,
-            'target_amount': float(self.target_amount),
-            'current_amount': float(self.current_amount),
-            'monthly_contribution': float(self.monthly_contribution),
+            'contribution_amount': float(self.contribution_amount),
+            'frequency': self.frequency,
+            'max_members': self.max_members,
             'start_date': self.start_date.isoformat() if self.start_date else None,
             'end_date': self.end_date.isoformat() if self.end_date else None,
-            'created_by': self.created_by,
+            'status': self.status,
+            'invite_code': self.invite_code,
+            'admin_user_id': self.admin_user_id,
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'is_active': self.is_active,
-            'max_members': self.max_members,
-            'member_count': len(self.members)
+            'member_count': len(self.members),
+            'target_amount': float(self.contribution_amount) * self.max_members,
+            'current_total': sum(float(c.amount) for c in self.contributions)
         }
 
 class StockvelMember(db.Model):
@@ -49,8 +71,11 @@ class StockvelMember(db.Model):
     stockvel_id = db.Column(db.Integer, db.ForeignKey('stockvels.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
-    is_admin = db.Column(db.Boolean, default=False)
-    total_contributed = db.Column(db.Decimal(10, 2), default=0.00)
+    is_admin = db.Column(db.Boolean, default=False)  # Track if this member is admin
+    is_active = db.Column(db.Boolean, default=True)
+
+    # Unique constraint to prevent duplicate memberships
+    __table_args__ = (db.UniqueConstraint('stockvel_id', 'user_id', name='unique_stockvel_member'),)
 
     def to_dict(self):
         return {
@@ -59,7 +84,7 @@ class StockvelMember(db.Model):
             'user_id': self.user_id,
             'joined_at': self.joined_at.isoformat() if self.joined_at else None,
             'is_admin': self.is_admin,
-            'total_contributed': float(self.total_contributed)
+            'is_active': self.is_active
         }
 
 class Contribution(db.Model):
@@ -68,9 +93,11 @@ class Contribution(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     stockvel_id = db.Column(db.Integer, db.ForeignKey('stockvels.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    amount = db.Column(db.Decimal(10, 2), nullable=False)
+    amount = db.Column(Numeric(10, 2), nullable=False)
     contribution_date = db.Column(db.DateTime, default=datetime.utcnow)
     description = db.Column(db.String(255), nullable=True)
+    payment_method = db.Column(db.String(50), nullable=True)  # bank_transfer, cash, etc.
+    status = db.Column(db.String(20), default='confirmed')  # pending, confirmed, failed
 
     def to_dict(self):
         return {
@@ -79,5 +106,7 @@ class Contribution(db.Model):
             'user_id': self.user_id,
             'amount': float(self.amount),
             'contribution_date': self.contribution_date.isoformat() if self.contribution_date else None,
-            'description': self.description
+            'description': self.description,
+            'payment_method': self.payment_method,
+            'status': self.status
         }
