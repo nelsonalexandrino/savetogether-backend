@@ -67,8 +67,8 @@ def register():
         db.session.add(user)
         db.session.commit()
         
-        # Generate access token
-        access_token = create_access_token(identity=user.id)
+        # Generate access token (identity as string)
+        access_token = create_access_token(identity=str(user.id))
         logger.info(f"Generated token for user {user.id}: {access_token[:20]}...")
         
         return jsonify({
@@ -114,7 +114,7 @@ def login():
         db.session.commit()
         
         # Generate access token
-        access_token = create_access_token(identity=user.id)
+        access_token = create_access_token(identity=str(user.id))
         jwt_secret = os.getenv('JWT_SECRET_KEY', 'jwt-secret-change-in-production')
         logger.info(f"Login successful for user {user.id} ({user.email})")
         logger.info(f"JWT Secret being used: {jwt_secret[:10]}...")
@@ -135,7 +135,7 @@ def login():
 def get_profile():
     """Get current user's profile"""
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())  # Convert string back to int
         logger.info(f"Profile request from user_id: {user_id}")
         user = User.query.get(user_id)
         
@@ -152,7 +152,7 @@ def get_profile():
 def update_profile():
     """Update current user's profile"""
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         user = User.get_by_id(current_user_id)
         
         if not user:
@@ -184,7 +184,7 @@ def update_profile():
 def change_password():
     """Change user password"""
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         user = User.get_by_id(current_user_id)
         
         if not user:

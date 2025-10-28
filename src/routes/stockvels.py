@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def create_stockvel():
     """Create a new stockvel/group"""
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         data = request.get_json()
         
         # Validation - matching Flutter fields
@@ -71,7 +71,7 @@ def create_stockvel():
 @jwt_required()
 def get_stockvels():
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         logger.info(f"Get stockvels request from user_id: {current_user_id}")
         logger.info(f"Authorization header: {request.headers.get('Authorization', 'MISSING')[:50]}...")
         
@@ -94,7 +94,7 @@ def get_stockvels():
 @jwt_required()
 def get_stockvel(stockvel_id):
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         
         # Check if user is a member
         member = StockvelMember.query.filter_by(
@@ -133,7 +133,7 @@ def get_stockvel(stockvel_id):
 @jwt_required()
 def join_stockvel(stockvel_id):
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         
         stockvel = Stockvel.query.get(stockvel_id)
         if not stockvel:
@@ -176,7 +176,7 @@ def join_stockvel(stockvel_id):
 @jwt_required()
 def make_contribution(stockvel_id):
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         data = request.get_json()
         
         if 'amount' not in data:
@@ -229,7 +229,7 @@ def make_contribution(stockvel_id):
 @jwt_required()
 def get_contributions(stockvel_id):
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         
         # Check if user is a member
         member = StockvelMember.query.filter_by(

@@ -10,7 +10,7 @@ users_bp = Blueprint('users', __name__)
 @jwt_required()
 def get_current_user_profile():
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         user = User.get_by_id(current_user_id)
         
         if not user:
@@ -25,7 +25,7 @@ def get_current_user_profile():
 @jwt_required()
 def get_user_stats():
     try:
-        current_user_id = get_jwt_identity()
+        current_user_id = int(get_jwt_identity())  # Convert string back to int
         
         # Get user stockvel memberships
         memberships = StockvelMember.query.filter_by(user_id=current_user_id).all()
