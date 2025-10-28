@@ -93,11 +93,37 @@ def get_stockvels():
         
         logger.info(f"Found {len(user_stockvels)} stockvels for user {current_user_id}")
         
+        # Add user-specific contribution data to each stockvel
+        stockvels_data = []
+        for stockvel in user_stockvels:
+            stockvel_dict = stockvel.to_dict()
+            
+            # Get user's total contributions to this stockvel
+            user_contributions = db.session.query(Contribution).filter(
+                Contribution.stockvel_id == stockvel.id,
+                Contribution.user_id == current_user_id,
+                Contribution.status == 'confirmed'
+            ).all()
+            
+            user_total_contributed = sum(float(c.amount) for c in user_contributions)
+            
+            # Calculate expected contribution for this user (contribution_amount * max_members for full cycle)
+            # But user only needs to contribute their share: contribution_amount * max_members
+            user_expected_total = float(stockvel.contribution_amount) * stockvel.max_members
+            
+            # Add user-specific data
+            stockvel_dict['user_contributed'] = user_total_contributed
+            stockvel_dict['user_expected'] = user_expected_total
+            stockvel_dict['user_progress_percentage'] = (user_total_contributed / user_expected_total * 100) if user_expected_total > 0 else 0
+            
+            stockvels_data.append(stockvel_dict)
+        
         return jsonify({
-            'stockvels': [stockvel.to_dict() for stockvel in user_stockvels]
+            'stockvels': stockvels_data
         }), 200
         
     except Exception as e:
+        logger.error(f"Error getting stockvels: {str(e)}", exc_info=True)
         return jsonify({'error': 'Failed to get stockvels', 'details': str(e)}), 500
 
 @stockvels_bp.route('/<int:stockvel_id>', methods=['GET'])
