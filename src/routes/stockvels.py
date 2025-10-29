@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from models.stockvel import Stockvel, StockvelMember, Contribution
 from models.user import User
 from services.database_service import db
+from sqlalchemy import func
 from datetime import datetime, date
 from decimal import Decimal
 import logging
@@ -343,7 +344,7 @@ def get_contributions(stockvel_id):
         for contrib in contributions:
             user = User.get_by_id(contrib.user_id)
             contrib_dict = contrib.to_dict()
-            contrib_dict['user'] = user.to_dict() if user else None
+            contrib_dict['user_name'] = f"{user.first_name} {user.last_name}" if user else "Unknown"
             contributions_data.append(contrib_dict)
         
         return jsonify({'contributions': contributions_data}), 200
@@ -372,3 +373,125 @@ def search_stockvels():
         
     except Exception as e:
         return jsonify({'error': 'Search failed', 'details': str(e)}), 500
+@stockvels_bp.route('/<int:stockvel_id>/members', methods=['GET'])
+@jwt_required()
+def get_members(stockvel_id):
+    """Get all members of a stockvel with their contribution details"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        
+        # Check if user is a member
+        member = StockvelMember.query.filter_by(
+            stockvel_id=stockvel_id,
+            user_id=current_user_id
+        ).first()
+        
+        if not member:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get stockvel
+        stockvel = Stockvel.query.get(stockvel_id)
+        if not stockvel:
+            return jsonify({'error': 'Stockvel not found'}), 404
+        
+        # Get all members
+        members = StockvelMember.query.filter_by(stockvel_id=stockvel_id).all()
+        
+        members_data = []
+        for m in members:
+            user = User.get_by_id(m.user_id)
+            if user:
+                # Calculate member's total contributions
+                total_contributed = db.session.query(
+                    func.sum(Contribution.amount)
+                ).filter_by(
+                    stockvel_id=stockvel_id,
+                    user_id=m.user_id
+                ).scalar() or 0
+                
+                # Get last contribution date
+                last_contribution = Contribution.query.filter_by(
+                    stockvel_id=stockvel_id,
+                    user_id=m.user_id
+                ).order_by(Contribution.contribution_date.desc()).first()
+                
+                members_data.append({
+                    'user_id': user.id,
+                    'user_name': f"{user.first_name} {user.last_name}",
+                    'email': user.email,
+                    'is_admin': m.is_admin,
+                    'joined_date': m.joined_date.isoformat() if m.joined_date else None,
+                    'total_contributed': float(total_contributed),
+                    'last_contribution_date': last_contribution.contribution_date.isoformat() if last_contribution else None
+                })
+        
+        return jsonify({'members': members_data}), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting members: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to get members', 'details': str(e)}), 500
+
+@stockvels_bp.route('/<int:stockvel_id>/leave', methods=['DELETE'])
+@jwt_required()
+def leave_stockvel(stockvel_id):
+    """Leave a stockvel (remove membership)"""
+    try:
+        current_user_id = int(get_jwt_identity())
+        
+        # Get the stockvel
+        stockvel = Stockvel.query.get(stockvel_id)
+        if not stockvel:
+            return jsonify({'error': 'Stockvel not found'}), 404
+        
+        # Check if user is a member
+        member = StockvelMember.query.filter_by(
+            stockvel_id=stockvel_id,
+            user_id=current_user_id
+        ).first()
+        
+        if not member:
+            return jsonify({'error': 'You are not a member of this stockvel'}), 400
+        
+        # Don't allow admin to leave if there are other members
+        if member.is_admin:
+            other_members = StockvelMember.query.filter(
+                StockvelMember.stockvel_id == stockvel_id,
+                StockvelMember.user_id != current_user_id
+            ).count()
+            
+            if other_members > 0:
+                return jsonify({
+                    'error': 'Admin cannot leave while there are other members. Please transfer admin rights first or delete the stockvel.'
+                }), 400
+        
+        # Check if user has outstanding contributions
+        total_contributed = db.session.query(
+            func.sum(Contribution.amount)
+        ).filter_by(
+            stockvel_id=stockvel_id,
+            user_id=current_user_id
+        ).scalar() or 0
+        
+        expected_amount = float(stockvel.contribution_amount) * stockvel.max_members
+        
+        if total_contributed < expected_amount:
+            return jsonify({
+                'error': f'You have outstanding contributions. Please contribute R{expected_amount - total_contributed:.2f} before leaving.',
+                'warning': True
+            }), 400
+        
+        # Remove membership
+        db.session.delete(member)
+        db.session.commit()
+        
+        logger.info(f"User {current_user_id} left stockvel {stockvel_id}")
+        
+        return jsonify({
+            'message': 'Successfully left the stockvel',
+            'success': True
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error leaving stockvel: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to leave stockvel', 'details': str(e)}), 500
