@@ -45,8 +45,11 @@ class Stockvel(db.Model):
 
     def to_dict(self):
         """Convert stockvel object to dictionary"""
-        # Calculate total expected from all members for the full cycle
-        total_expected = float(self.contribution_amount) * self.max_members
+        # Calculate expected contribution per member (each member pays contribution × max_members)
+        expected_per_member = float(self.contribution_amount) * self.max_members
+        
+        # Calculate total expected from ALL members (each member contributes expected_per_member)
+        total_expected_all_members = expected_per_member * self.max_members
         
         # Calculate total contributions so far
         total_contributed = sum(float(c.amount) for c in self.contributions)
@@ -66,7 +69,7 @@ class Stockvel(db.Model):
             'created_at': self.created_at.isoformat() if self.created_at else None,
             'is_active': self.is_active,
             'member_count': len(self.members),
-            'target_amount': total_expected,
+            'target_amount': total_expected_all_members,
             'current_total': total_contributed
         }
 
