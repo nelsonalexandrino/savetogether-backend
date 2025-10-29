@@ -421,7 +421,7 @@ def get_members(stockvel_id):
                     'user_name': user.display_name or user.email.split('@')[0],
                     'email': user.email,
                     'is_admin': m.is_admin,
-                    'joined_date': m.joined_date.isoformat() if m.joined_date else None,
+                    'joined_date': m.joined_at.isoformat() if m.joined_at else None,
                     'total_contributed': float(total_contributed),
                     'last_contribution_date': last_contribution.contribution_date.isoformat() if last_contribution else None
                 })
