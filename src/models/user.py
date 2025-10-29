@@ -15,9 +15,9 @@ class User(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     last_login = db.Column(db.DateTime, nullable=True)
     
-    # Relationships
-    stockvel_memberships = db.relationship('StockvelMember', backref='user', lazy=True)
-    contributions = db.relationship('Contribution', backref='user', lazy=True)
+    # Relationships with cascade delete
+    stockvel_memberships = db.relationship('StockvelMember', backref='user', lazy=True, cascade='all, delete-orphan')
+    contributions = db.relationship('Contribution', backref='user', lazy=True, cascade='all, delete-orphan')
 
     def __repr__(self):
         return f"<User(id={self.id}, email='{self.email}', display_name='{self.display_name}')>"
