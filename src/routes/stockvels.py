@@ -395,8 +395,13 @@ def get_members(stockvel_id):
         if not stockvel:
             return jsonify({'error': 'Stockvel not found'}), 404
         
-        # Get all members
-        members = StockvelMember.query.filter_by(stockvel_id=stockvel_id).all()
+        # Get all members ordered by position
+        members = StockvelMember.query.filter_by(
+            stockvel_id=stockvel_id
+        ).order_by(
+            StockvelMember.position.asc().nullsfirst(),  # Position first, nulls at the beginning
+            StockvelMember.joined_at.asc()  # Then by join date for members without position
+        ).all()
         
         members_data = []
         for m in members:
@@ -525,11 +530,19 @@ def reorder_members(stockvel_id):
         
         member_order = data['member_order']
         
-        # Update the order in database (you can add a 'position' column to StockvelMember)
-        # For now, we'll just return success and the order is maintained in the frontend
-        # In a real implementation, add a 'position' column to track order
+        # Update the position for each member in the database
+        for index, user_id in enumerate(member_order):
+            member_to_update = StockvelMember.query.filter_by(
+                stockvel_id=stockvel_id,
+                user_id=user_id
+            ).first()
+            
+            if member_to_update:
+                member_to_update.position = index
         
-        logger.info(f"Member order updated for stockvel {stockvel_id}: {member_order}")
+        db.session.commit()
+        
+        logger.info(f"Member order updated and persisted for stockvel {stockvel_id}: {member_order}")
         
         return jsonify({
             'message': 'Member order updated successfully',
@@ -537,5 +550,6 @@ def reorder_members(stockvel_id):
         }), 200
         
     except Exception as e:
+        db.session.rollback()
         logger.error(f"Error reordering members: {str(e)}", exc_info=True)
         return jsonify({'error': 'Failed to reorder members', 'details': str(e)}), 500

@@ -82,6 +82,7 @@ class StockvelMember(db.Model):
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
     is_admin = db.Column(db.Boolean, default=False)  # Track if this member is admin
     is_active = db.Column(db.Boolean, default=True)
+    position = db.Column(db.Integer, nullable=True)  # Order position for payout rotation
 
     # Unique constraint to prevent duplicate memberships
     __table_args__ = (db.UniqueConstraint('stockvel_id', 'user_id', name='unique_stockvel_member'),)
@@ -93,7 +94,8 @@ class StockvelMember(db.Model):
             'user_id': self.user_id,
             'joined_at': self.joined_at.isoformat() if self.joined_at else None,
             'is_admin': self.is_admin,
-            'is_active': self.is_active
+            'is_active': self.is_active,
+            'position': self.position
         }
 
 class Contribution(db.Model):
