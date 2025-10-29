@@ -344,7 +344,7 @@ def get_contributions(stockvel_id):
         for contrib in contributions:
             user = User.get_by_id(contrib.user_id)
             contrib_dict = contrib.to_dict()
-            contrib_dict['user_name'] = f"{user.first_name} {user.last_name}" if user else "Unknown"
+            contrib_dict['user_name'] = (user.display_name or user.email.split('@')[0]) if user else "Unknown"
             contributions_data.append(contrib_dict)
         
         return jsonify({'contributions': contributions_data}), 200
@@ -418,7 +418,7 @@ def get_members(stockvel_id):
                 
                 members_data.append({
                     'user_id': user.id,
-                    'user_name': f"{user.first_name} {user.last_name}",
+                    'user_name': user.display_name or user.email.split('@')[0],
                     'email': user.email,
                     'is_admin': m.is_admin,
                     'joined_date': m.joined_date.isoformat() if m.joined_date else None,
