@@ -373,6 +373,7 @@ def search_stockvels():
         
     except Exception as e:
         return jsonify({'error': 'Search failed', 'details': str(e)}), 500
+
 @stockvels_bp.route('/<int:stockvel_id>/members', methods=['GET'])
 @jwt_required()
 def get_members(stockvel_id):
